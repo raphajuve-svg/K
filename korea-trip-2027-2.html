@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Korea 2027 — Urban Explorer</title>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700;900&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; }
+body { margin:0; background:#030712; font-family:'Noto Sans KR',sans-serif; overflow-x:hidden; }
+
+/* Keyframes */
+@keyframes fadeUp { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
+@keyframes fadeDown { from{opacity:0;transform:translateY(-24px)} to{opacity:1;transform:translateY(0)} }
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+@keyframes scaleIn { from{opacity:0;transform:scale(.88)} to{opacity:1;transform:scale(1)} }
+@keyframes slideRight { from{opacity:0;transform:translateX(-32px)} to{opacity:1;transform:translateX(0)} }
+@keyframes slideLeft { from{opacity:0;transform:translateX(32px)} to{opacity:1;transform:translateX(0)} }
+@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+@keyframes orb { 0%,100%{transform:scale(1) translate(0,0)} 33%{transform:scale(1.05) translate(20px,-10px)} 66%{transform:scale(.97) translate(-10px,15px)} }
+@keyframes drawLine { to{stroke-dashoffset:0} }
+@keyframes blinkDot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.6;transform:scale(.8)} }
+@keyframes spinSlow { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+@keyframes neonFlicker { 0%,100%{opacity:1} 50%{opacity:.85} }
+@keyframes countUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+@keyframes progressFill { from{width:0} to{width:var(--w)} }
+@keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+@keyframes popIn { 0%{opacity:0;transform:scale(.5) rotate(-10deg)} 80%{transform:scale(1.05) rotate(2deg)} 100%{opacity:1;transform:scale(1) rotate(0)} }
+@keyframes scanline { 0%{top:-10%} 100%{top:110%} }
+@keyframes pulseRing { 0%{transform:scale(1);opacity:.6} 100%{transform:scale(2.2);opacity:0} }
+
+/* Utilities */
+.fade-up { animation:fadeUp .55s ease-out both }
+.fade-down { animation:fadeDown .5s ease-out both }
+.fade-in { animation:fadeIn .5s ease-out both }
+.scale-in { animation:scaleIn .55s cubic-bezier(.34,1.56,.64,1) both }
+.slide-right { animation:slideRight .5s ease-out both }
+.slide-left { animation:slideLeft .5s ease-out both }
+
+.d1{animation-delay:.05s}.d2{animation-delay:.1s}.d3{animation-delay:.15s}
+.d4{animation-delay:.2s}.d5{animation-delay:.25s}.d6{animation-delay:.3s}
+.d7{animation-delay:.35s}.d8{animation-delay:.4s}.d9{animation-delay:.45s}
+
+/* District Node on map */
+.dist-node {
+  cursor:pointer;
+  transition:filter .3s, transform .35s cubic-bezier(.34,1.56,.64,1);
+  filter:drop-shadow(0 0 0 transparent);
+}
+.dist-node:hover { transform:scale(1.13); }
+
+/* Card hover */
+.card {
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1), box-shadow .3s, border-color .3s;
+  cursor:pointer;
+}
+.card:hover { transform:translateY(-5px) scale(1.01); box-shadow:0 20px 40px rgba(0,0,0,.5); }
+
+/* Subway paths */
+.metro-line { stroke-dasharray:600; stroke-dashoffset:600; animation:drawLine 1.8s ease-out forwards; }
+.metro-1 { animation-delay:.2s } .metro-2 { animation-delay:.4s } .metro-3 { animation-delay:.6s }
+.metro-4 { animation-delay:.8s } .metro-5 { animation-delay:1s }  .metro-6 { animation-delay:1.2s }
+.metro-7 { animation-delay:1.4s }
+
+/* Pulsing dot */
+.pulse-dot::after {
+  content:''; position:absolute; inset:0; border-radius:50%;
+  animation:pulseRing 1.5s ease-out infinite;
+}
+
+/* Neon effect */
+.neon-pink  { text-shadow:0 0 10px #ec4899,0 0 30px #ec489960 }
+.neon-purple{ text-shadow:0 0 10px #a855f7,0 0 30px #a855f760 }
+.neon-orange{ text-shadow:0 0 10px #f97316,0 0 30px #f9731660 }
+.neon-cyan  { text-shadow:0 0 10px #06b6d4,0 0 30px #06b6d460 }
+.neon-lime  { text-shadow:0 0 10px #84cc16,0 0 30px #84cc1660 }
+.neon-emerald{text-shadow:0 0 10px #10b981,0 0 30px #10b98160 }
+.neon-rose  { text-shadow:0 0 10px #f43f5e,0 0 30px #f43f5e60 }
+.neon-sky   { text-shadow:0 0 10px #0ea5e9,0 0 30px #0ea5e960 }
+
+/* Scanline overlay */
+.scanlines::after {
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.06) 2px,rgba(0,0,0,.06) 4px);
+  z-index:99;
+}
+
+/* Progress bar */
+.prog-bar { transition:width .9s cubic-bezier(.34,1.56,.64,1) }
+
+/* Checkbox */
+.check-item { transition:all .25s ease; cursor:pointer; }
+.check-item:hover { transform:translateX(4px); }
+
+/* Shimmer for loading */
+.shimmer {
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.05),transparent);
+  background-size:200% 100%; animation:shimmer 1.5s infinite;
+}
+
+/* Back button */
+.back-btn { transition:all .2s ease; }
+.back-btn:hover { transform:translateX(-3px); color:white; }
+
+/* Neighbor card */
+.nbr-card {
+  transition:all .3s cubic-bezier(.34,1.56,.64,1);
+  border:1px solid transparent;
+}
+.nbr-card:hover { transform:translateY(-6px) scale(1.02); }
+
+/* Seoul map grid lines */
+.grid-lines {
+  background-image:
+    linear-gradient(rgba(255,255,255,.015) 1px, transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.015) 1px, transparent 1px);
+  background-size:40px 40px;
+}
+
+/* Typography */
+.kr-title { letter-spacing:-.01em; }
+.mono { font-family:'Courier New',monospace; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+const UNSPLASH_KEY = 'ohTRfcr-97spBiKmAxdMNxMwBDwH1ZZgiyoCXdguG_Y';
+
+async function fetchPhoto(query) {
+  try {
+    const res = await fetch(`https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&client_id=${UNSPLASH_KEY}&per_page=3&orientation=landscape`);
+    const data = await res.json();
+    if (data.results && data.results.length > 0) {
+      const pick = data.results[Math.floor(Math.random() * Math.min(3, data.results.length))];
+      return { url: pick.urls.regular, thumb: pick.urls.small, credit: pick.user.name, creditLink: pick.links ? pick.links.html : '#' };
+    }
+  } catch(e) { console.warn('Unsplash fetch failed:', query); }
+  return null;
+}
+
+/* ──────────────────────────────────────────────
+   DATA
+──────────────────────────────────────────────── */
+const DISTRICTS = {
+  gangnam: {
+    id:'gangnam', name:'강남 (Gangnam)', title:'Financial District',
+    sub:'Budget · Savings · Costs', emoji:'💼',
+    color:'#ec4899', bg:'from-pink-950 to-slate-950', border:'border-pink-500',
+    glow:'shadow-pink-500/30', neon:'neon-pink',
+    x:63, y:55, size:60,
+    metro: '#ec4899',
+    photoQuery: 'Gangnam Seoul skyline night neon',
+    desc:'The financial powerhouse. Every won accounted for, every euro tracked. Your command center for trip economics.',
+  },
+  hongdae: {
+    id:'hongdae', name:'홍대 (Hongdae)', title:'Arts & Planning Quarter',
+    sub:'Itinerary · Dates · Journey', emoji:'🎨',
+    color:'#a855f7', bg:'from-purple-950 to-slate-950', border:'border-purple-500',
+    glow:'shadow-purple-500/30', neon:'neon-purple',
+    x:22, y:35, size:55,
+    metro:'#a855f7',
+    photoQuery: 'Hongdae Seoul street art nightlife',
+    desc:'Creative and chaotic, like Hongdae itself. Where your 9-week journey takes shape, week by week.',
+  },
+  myeongdong: {
+    id:'myeongdong', name:'명동 (Myeongdong)', title:'Shopping & Prep Quarter',
+    sub:'Packing · Essentials · Gear', emoji:'🛍️',
+    color:'#f97316', bg:'from-orange-950 to-slate-950', border:'border-orange-500',
+    glow:'shadow-orange-500/30', neon:'neon-orange',
+    x:47, y:22, size:52,
+    metro:'#f97316',
+    photoQuery: 'Myeongdong Seoul shopping street lights',
+    desc:'Everything you need before you leave. Pack smart, pack light, forget nothing.',
+  },
+  dongdaemun: {
+    id:'dongdaemun', name:'동대문 (Dongdaemun)', title:'24H Market District',
+    sub:'Checklist · Tasks · Deadlines', emoji:'✅',
+    color:'#f43f5e', bg:'from-rose-950 to-slate-950', border:'border-rose-500',
+    glow:'shadow-rose-500/30', neon:'neon-rose',
+    x:72, y:28, size:52,
+    metro:'#f43f5e',
+    photoQuery: 'Dongdaemun Design Plaza Seoul night',
+    desc:'Open 24 hours. Your pre-trip task market — organized by deadline, impossible to miss.',
+  },
+  itaewon: {
+    id:'itaewon', name:'이태원 (Itaewon)', title:'International Nexus',
+    sub:'Cities · Routes · Transport', emoji:'🌏',
+    color:'#06b6d4', bg:'from-cyan-950 to-slate-950', border:'border-cyan-500',
+    glow:'shadow-cyan-500/30', neon:'neon-cyan',
+    x:38, y:62, size:55,
+    metro:'#06b6d4',
+    photoQuery: 'Seoul South Korea cityscape aerial',
+    desc:'Where cultures collide. All the cities you\'ll visit, how to reach them, what to expect.',
+  },
+  cheonggyecheon: {
+    id:'cheonggyecheon', name:'청계천 (Cheonggyecheon)', title:'Booking Waterway',
+    sub:'Flights · Hotels · Trains', emoji:'🗓️',
+    color:'#0ea5e9', bg:'from-sky-950 to-slate-950', border:'border-sky-500',
+    glow:'shadow-sky-500/30', neon:'neon-sky',
+    x:55, y:75, size:52,
+    metro:'#0ea5e9',
+    photoQuery: 'Cheonggyecheon stream Seoul night reflection',
+    desc:'Like the stream running through Seoul, this is your flow of bookings — from flights to final hotels.',
+  },
+  hanriver: {
+    id:'hanriver', name:'한강공원 (Han River Park)', title:'Central Departure Hub',
+    sub:'Countdown · Dates · Overview', emoji:'🌊',
+    color:'#10b981', bg:'from-emerald-950 to-slate-950', border:'border-emerald-500',
+    glow:'shadow-emerald-500/30', neon:'neon-emerald',
+    x:45, y:45, size:65,
+    metro:'#10b981',
+    photoQuery: 'Han River Seoul golden hour bridge',
+    desc:'The heart of Seoul. The heart of your trip. Where the countdown to your greatest adventure lives.',
+  },
+  bukchon: {
+    id:'bukchon', name:'북촌 (Bukchon)', title:'Hidden Hanok Village',
+    sub:'Secrets · Tips · Easter Eggs', emoji:'🏮',
+    color:'#84cc16', bg:'from-lime-950 to-slate-950', border:'border-lime-500',
+    glow:'shadow-lime-500/30', neon:'neon-lime',
+    x:78, y:62, size:48,
+    metro:'#84cc16',
+    photoQuery: 'Bukchon Hanok Village Seoul traditional rooftop',
+    desc:'Behind the walls, down the alleys. Secrets for those who explore beyond the obvious.',
+  },
+};
+
+const METRO_LINES = [
+  { from:'hanriver', to:'gangnam', color:'#ec4899' },
+  { from:'hanriver', to:'hongdae', color:'#a855f7' },
+  { from:'hanriver', to:'myeongdong', color:'#f97316' },
+  { from:'hanriver', to:'dongdaemun', color:'#f43f5e' },
+  { from:'hanriver', to:'itaewon', color:'#06b6d4' },
+  { from:'hanriver', to:'cheonggyecheon', color:'#0ea5e9' },
+  { from:'hanriver', to:'bukchon', color:'#84cc16' },
+  { from:'gangnam', to:'dongdaemun', color:'#f43f5e' },
+  { from:'hongdae', to:'myeongdong', color:'#f97316' },
+  { from:'itaewon', to:'cheonggyecheon', color:'#0ea5e9' },
+];
+
+/* ──────────────────────────────────────────────
+   NEIGHBORHOOD CONTENT COMPONENTS
+──────────────────────────────────────────────── */
+function GangnamContent({ savingsData, setSavingsData }) {
+  const periods = [
+    { key:'s2026', label:'Summer 2026 (full-time)', target:2100, color:'#ec4899' },
+    { key:'sy', label:'School Year (half-time)', target:3150, color:'#f472b6' },
+    { key:'x2026', label:'Christmas Break 2026', target:800, color:'#db2777' },
+    { key:'e2027', label:'Easter Break 2027', target:600, color:'#be185d' },
+    { key:'j2027', label:'June–July 2027', target:600, color:'#9d174d' },
+  ];
+  const total = Object.values(savingsData).reduce((a,b)=>a+b,0);
+  const pct = Math.min(100,(total/7500)*100);
+  const items = [
+    { cat:'✈️ Flights', amt:600, color:'#ec4899' },
+    { cat:'🏨 Accommodation', amt:2550, color:'#a855f7' },
+    { cat:'🍜 Food', amt:2125, color:'#f97316' },
+    { cat:'🚇 Transport', amt:900, color:'#06b6d4' },
+    { cat:'🎫 Activities', amt:500, color:'#10b981' },
+    { cat:'💰 Buffer', amt:225, color:'#94a3b8' },
+  ];
+  return (
+    <div className="space-y-8 fade-up">
+      <div className="grid grid-cols-3 gap-4">
+        {[['70 Days','June 29 – Sept 8','📅'],['€7,500','Complete budget','💶'],['€105/day','Daily in Korea','⚡']].map(([v,s,e],i)=>(
+          <div key={i} className={`fade-up d${i+1} bg-slate-800/60 border border-pink-500/30 rounded-2xl p-5 card`} style={{boxShadow:'0 0 20px #ec489915'}}>
+            <p className="text-3xl mb-2">{e}</p>
+            <p className="text-2xl font-black text-white">{v}</p>
+            <p className="text-slate-400 text-sm mt-1">{s}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-slate-900/60 border border-pink-500/20 rounded-2xl p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-bold text-white">Savings Tracker</h3>
+          <span className={`text-lg font-black neon-pink ${total>=7500?'text-green-400 neon-lime':''}`}>
+            {total>=7500?'🎉 Goal reached!': `€${total.toLocaleString()} / €7,500`}
+          </span>
+        </div>
+        <div className="w-full h-3 bg-slate-700 rounded-full mb-6 overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-pink-500 to-rose-400 rounded-full prog-bar" style={{width:`${pct}%`}} />
+        </div>
+        <div className="space-y-4">
+          {periods.map(p=>(
+            <div key={p.key} className="fade-up">
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-slate-300 text-sm">{p.label}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500 text-xs">/ €{p.target}</span>
+                  <input type="number" min="0" value={savingsData[p.key]||0}
+                    onChange={e=>setSavingsData(d=>({...d,[p.key]:Math.max(0,+e.target.value||0)}))}
+                    className="w-20 bg-slate-800 border border-slate-600 text-white text-sm rounded px-2 py-1 text-right focus:border-pink-500 focus:outline-none transition"/>
+                </div>
+              </div>
+              <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                <div className="h-full rounded-full prog-bar" style={{width:`${Math.min(100,(savingsData[p.key]||0)/p.target*100)}%`,background:p.color}}/>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-slate-900/60 border border-pink-500/20 rounded-2xl p-6">
+        <h3 className="text-xl font-bold text-white mb-6">Budget Breakdown</h3>
+        <div className="space-y-4">
+          {items.map((item,i)=>(
+            <div key={i} className={`fade-up d${i+1}`}>
+              <div className="flex justify-between text-sm mb-1.5">
+                <span className="text-slate-300">{item.cat}</span>
+                <span className="text-white font-bold">€{item.amt.toLocaleString()}</span>
+              </div>
+              <div className="h-2.5 bg-slate-700 rounded-full overflow-hidden">
+                <div className="h-full rounded-full prog-bar" style={{width:`${(item.amt/2550)*100}%`,background:item.color}}/>
+              </div>
+            </div>
+          ))}
+          <div className="border-t border-slate-700 pt-3 flex justify-between">
+            <span className="text-slate-300 font-semibold">Total</span>
+            <span className="text-white font-black text-xl neon-pink">€7,500</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HongdaeContent() {
+  const [expanded, setExpanded] = useState(null);
+  const [weekPhotos, setWeekPhotos] = useState({});
+
+  const weeks = [
+    { n:1, title:'Arrival & Seoul Setup', dates:'Jul 7–14', vibe:'🌆', budget:'€260–300',
+      photoQ:'Seoul Incheon arrival city skyline',
+      acts:['Arrive at Incheon Airport','Get T-money card at station','Settle in Hongdae or Itaewon','Gyeongbokgung Palace visit','Myeongdong street food crawl','Find your favourite café street'] },
+    { n:2, title:'Seoul Deep Dive', dates:'Jul 14–21', vibe:'🏯', budget:'€280–320',
+      photoQ:'Gyeongbokgung Palace Seoul',
+      acts:['Gangnam & trendy cafés','N Seoul Tower at sunset','Buddhist temples & shrines','Han River picnic','Nami Island day trip (30min)','Itaewon neighbourhoods'] },
+    { n:3, title:'Seoul + Gyeongju', dates:'Jul 21–28', vibe:'🎨', budget:'€300–350',
+      photoQ:'Gyeongju Bulguksa temple Korea',
+      acts:['Hongdae nightlife & street art','More museums & galleries','Weekend: Gyeongju UNESCO temples','Bulguksa Temple (3000+ years old)','Cheomseongdae Observatory','Tumuli Park grass burial mounds'] },
+    { n:4, title:'Heat & Chill', dates:'Jul 28–Aug 4', vibe:'☀️', budget:'€280–320',
+      photoQ:'Seoul summer street food market',
+      acts:['Relax in Seoul — no rush','Korean cooking class (splurge!)','Beach day trip to nearby coast','Deep dive street food tour','Plan Busan trip details'] },
+    { n:5, title:'Busan Adventure', dates:'Aug 4–11', vibe:'🏖️', budget:'€350–420',
+      photoQ:'Busan Gwangalli Beach bridge night',
+      acts:['KTX train to Busan (2.5hr)','Gwangalli Beach + bridge views','Beomeosa Temple mountain hike','Jagalchi Fish Market at dawn','Gamcheon Culture Village','Fresh raw seafood dinners'] },
+    { n:6, title:'Seoraksan & Mountains', dates:'Aug 11–18', vibe:'⛰️', budget:'€320–380',
+      photoQ:'Seoraksan National Park mountain Korea',
+      acts:['Express bus to Sokcho','Seoraksan NP hiking trails (FREE)','Ulsanbawi Rock hike','Biryong Falls','Cable car option','Sokcho seaside abalone porridge'] },
+    { n:7, title:'Jeju Island Paradise', dates:'Aug 18–25', vibe:'🌊', budget:'€450–550',
+      photoQ:'Jeju Island beach volcanic landscape Korea',
+      acts:['Gimpo → Jeju flight (1.5hr)','Hyeopjae + Geumneung beaches','Hallasan mountain hike (1950m)','Seongsan Ilchulbong at sunrise','Local haenyeo diving shows','Black pork BBQ — Jeju specialty'] },
+    { n:8, title:'Seoul — The Return', dates:'Aug 25–Sept 1', vibe:'🌙', budget:'€280–320',
+      photoQ:'Seoul night market Han River',
+      acts:['Return from Jeju','Revisit favourite streets & cafés','Night markets + shopping','Han River cycling','Language exchange meetup (free!)','Dongdaemun 24h fashion market'] },
+    { n:9, title:'Final Stretch', dates:'Sept 1–8', vibe:'💫', budget:'€280–350',
+      photoQ:'Seoul departure airport Korea sunset',
+      acts:['Last Seoul explorations','Souvenir shopping (Namdaemun Market)','Final Korean BBQ feast','Write down every memory','Depart from Incheon — head home'] },
+  ];
+
+  useEffect(() => {
+    async function loadWeekPhotos() {
+      const entries = await Promise.all(
+        weeks.map(async w => {
+          const p = await fetchPhoto(w.photoQ);
+          return [w.n, p];
+        })
+      );
+      setWeekPhotos(Object.fromEntries(entries));
+    }
+    loadWeekPhotos();
+  }, []);
+
+  return (
+    <div className="space-y-3 fade-up">
+      {weeks.map(w => {
+        const photo = weekPhotos[w.n];
+        return (
+          <div key={w.n}
+            className={`fade-up d${Math.min(w.n,9)} border rounded-xl overflow-hidden transition-all card ${expanded===w.n?'border-purple-500/60':'border-slate-700/40 hover:border-purple-500/30'}`}
+            style={{background:'rgba(15,23,42,0.7)'}}
+            onClick={()=>setExpanded(expanded===w.n?null:w.n)}>
+
+            {/* Card header with photo */}
+            <div className="flex items-stretch">
+              {/* Photo thumbnail */}
+              <div className="relative flex-shrink-0 w-24 overflow-hidden">
+                {photo ? (
+                  <>
+                    <img src={photo.thumb} alt={w.title}
+                      className="absolute inset-0 w-full h-full object-cover fade-in"
+                      style={{opacity:.7}}/>
+                    <div className="absolute inset-0" style={{background:'linear-gradient(to right,transparent,rgba(15,23,42,.85))'}}/>
+                  </>
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center bg-slate-800/60">
+                    <span className="text-3xl">{w.vibe}</span>
+                  </div>
+                )}
+                {photo && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-2xl drop-shadow-lg">{w.vibe}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Text content */}
+              <div className="flex items-center justify-between p-4 flex-1 min-w-0">
+                <div className="min-w-0">
+                  <p className="text-white font-bold truncate">Week {w.n}: {w.title}</p>
+                  <p className="text-slate-400 text-sm">{w.dates}</p>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                  <span className="text-purple-300 text-sm font-semibold bg-purple-500/10 border border-purple-500/30 px-3 py-1 rounded-full hidden sm:block">{w.budget}</span>
+                  <span className={`text-slate-400 text-lg transition-transform duration-300 ${expanded===w.n?'rotate-180':''}`}>▾</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Expanded activities + full photo strip */}
+            {expanded===w.n && (
+              <div className="border-t border-slate-700/40">
+                {/* Full-width photo banner */}
+                {photo && (
+                  <div className="relative h-40 overflow-hidden">
+                    <img src={photo.url} alt={w.title}
+                      className="w-full h-full object-cover scale-in"
+                      style={{opacity:.6, objectPosition:'center 40%'}}/>
+                    <div className="absolute inset-0" style={{background:'linear-gradient(to bottom,transparent,rgba(15,23,42,1))'}}/>
+                    <div className="absolute bottom-2 right-3 text-slate-500 text-xs">
+                      📸 {photo.credit} / Unsplash
+                    </div>
+                  </div>
+                )}
+                <div className="px-4 pb-4 pt-3 grid sm:grid-cols-2 gap-2">
+                  {w.acts.map((a,i)=>(
+                    <div key={i} className={`fade-up d${i+1} flex items-start gap-2 text-slate-300 text-sm`}>
+                      <span className="text-purple-400 mt-0.5 text-xs">◆</span>{a}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function MyeongdongContent() {
+  const [checked, setChecked] = useState({});
+  const toggle = id => setChecked(c=>({...c,[id]:!c[id]}));
+  const cats = [
+    { title:'🧳 Documents & Essentials', items:[
+      {id:'passport',t:'Passport (valid 6+ months after return date)'},
+      {id:'copies',t:'Digital + physical passport copies'},
+      {id:'keta',t:'K-ETA approval printout'},
+      {id:'insurance',t:'Travel insurance policy document'},
+      {id:'flights',t:'Flight confirmation printouts'},
+      {id:'hotels',t:'First hotel booking confirmation'},
+      {id:'emergency',t:'Emergency contacts written down'},
+      {id:'adaptor',t:'Power adaptor (220V, Type C/F plug)'},
+    ]},
+    { title:'👕 Clothing', items:[
+      {id:'tshirts',t:'T-shirts × 6–7'},
+      {id:'shorts',t:'Shorts × 3–4 (Korean summer is hot!)'},
+      {id:'pants',t:'Light trousers × 2–3'},
+      {id:'underwear',t:'Underwear & socks × 10+'},
+      {id:'jacket',t:'Light cardigan/jacket (AC is VERY cold indoors)'},
+      {id:'shoes',t:'Comfortable walking shoes'},
+      {id:'hiking',t:'Hiking boots or sturdy trainers'},
+      {id:'sandals',t:'Sandals / flip-flops'},
+      {id:'swim',t:'Swimsuit × 2 (Busan + Jeju beaches)'},
+      {id:'nightwear',t:'Nightwear'},
+    ]},
+    { title:'🧴 Toiletries', items:[
+      {id:'toothbrush',t:'Toothbrush & toothpaste'},
+      {id:'deo',t:'Deodorant'},
+      {id:'sunscreen',t:'SPF 50+ sunscreen (bring plenty!)'},
+      {id:'skincare',t:'Basic skincare routine'},
+      {id:'meds',t:'Any medications + paracetamol/ibuprofen'},
+      {id:'insects',t:'Insect repellent (summer is buggy)'},
+      {id:'lip',t:'Lip balm with SPF'},
+    ]},
+    { title:'💻 Tech', items:[
+      {id:'powerbank',t:'Power bank — large capacity'},
+      {id:'phone',t:'Phone & original charger'},
+      {id:'earphones',t:'Earphones / headphones'},
+      {id:'laptop',t:'Laptop or tablet (optional)'},
+      {id:'camera',t:'Camera (optional — phone works great)'},
+    ]},
+  ];
+  const total = cats.reduce((a,c)=>a+c.items.length,0);
+  const done = Object.values(checked).filter(Boolean).length;
+  return (
+    <div className="space-y-6 fade-up">
+      <div className="bg-slate-900/60 border border-orange-500/30 rounded-xl p-4 flex items-center justify-between">
+        <span className="text-slate-300 font-semibold">{done} / {total} items packed</span>
+        <div className="w-40 h-2 bg-slate-700 rounded-full overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-orange-500 to-amber-400 prog-bar rounded-full" style={{width:`${(done/total)*100}%`}}/>
+        </div>
+      </div>
+      {cats.map((cat,ci)=>(
+        <div key={ci} className={`fade-up d${ci+1} bg-slate-900/60 border border-orange-500/20 rounded-2xl p-5`}>
+          <h3 className="text-white font-bold mb-4">{cat.title}</h3>
+          <div className="grid sm:grid-cols-2 gap-2">
+            {cat.items.map(item=>(
+              <div key={item.id} onClick={()=>toggle(item.id)}
+                className="check-item flex items-start gap-3 p-2.5 rounded-lg hover:bg-slate-700/30">
+                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center mt-0.5 transition-all flex-shrink-0 ${checked[item.id]?'bg-orange-500 border-orange-500':'border-slate-500'}`}>
+                  {checked[item.id] && <span className="text-white text-xs font-bold">✓</span>}
+                </div>
+                <span className={`text-sm transition-all ${checked[item.id]?'line-through text-slate-500':'text-slate-200'}`}>{item.t}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DongdaemunContent() {
+  const [checked, setChecked] = useState({});
+  const toggle = id => setChecked(c=>({...c,[id]:!c[id]}));
+  const sections = [
+    { when:'⏰ 4 Months Before', desc:'March 2027', color:'#f43f5e', tasks:[
+      {id:'t1',t:'Book Brussels → Seoul flights (look for deals, set Google Flights alert)'},
+      {id:'t2',t:'Buy travel insurance immediately after booking flights'},
+      {id:'t3',t:'Check passport — must be valid 6+ months after return date'},
+      {id:'t4',t:'Open dedicated savings account for trip fund'},
+      {id:'t5',t:'Follow Korea travel accounts on Instagram & YouTube'},
+    ]},
+    { when:'✈️ 3 Months Before', desc:'April 2027', color:'#f97316', tasks:[
+      {id:'t6',t:'Apply for K-ETA at k-eta.go.kr (€10, takes 72hrs, valid 2 years)'},
+      {id:'t7',t:'Book first 2 weeks hotel in Seoul (Hongdae or Itaewon area)'},
+      {id:'t8',t:'Book Jeju domestic flight from Gimpo — book early, fills up!'},
+      {id:'t9',t:'Register trip with Belgian Ministry of Foreign Affairs'},
+      {id:'t10',t:'Start researching Seoul neighborhoods and activities'},
+    ]},
+    { when:'🏨 2 Months Before', desc:'May 2027', color:'#f59e0b', tasks:[
+      {id:'t11',t:'Book KTX train Seoul → Busan at letskorail.com (€30–40, 2.5hrs)'},
+      {id:'t12',t:'Notify bank of travel dates (prevents card blocks)'},
+      {id:'t13',t:'Download Naver Map + download offline maps for Seoul'},
+      {id:'t14',t:'Download Papago translation app'},
+      {id:'t15',t:'Book Busan & Jeju accommodations'},
+    ]},
+    { when:'📱 1 Month Before', desc:'June 2027', color:'#10b981', tasks:[
+      {id:'t16',t:'Order Korean SIM card (KT/SK Telecom) or plan airport pickup'},
+      {id:'t17',t:'Book remaining hotel nights in Seoul'},
+      {id:'t18',t:'Learn 20 essential Korean phrases (hello, thank you, how much?)'},
+      {id:'t19',t:'Plan AREX train from Incheon Airport to Seoul (43min, €5)'},
+      {id:'t20',t:'Exchange €200–300 to won, or plan ATM strategy'},
+    ]},
+    { when:'🧳 2 Weeks Before', desc:'Late June 2027', color:'#06b6d4', tasks:[
+      {id:'t21',t:'Print all booking confirmations + put in folder'},
+      {id:'t22',t:'Check weather forecast — July/Aug averages 30°C+'},
+      {id:'t23',t:'Charge all devices fully, test power bank'},
+      {id:'t24',t:'Make cloud backup of all documents (Google Drive)'},
+      {id:'t25',t:'Start packing with actual luggage — weigh it!'},
+    ]},
+    { when:'🌙 Night Before', desc:'The night before departure', color:'#a855f7', tasks:[
+      {id:'t26',t:'Final packing check — toiletries, passport, chargers'},
+      {id:'t27',t:'Download entertainment for 11-hour flight'},
+      {id:'t28',t:'Set 3 alarms for airport morning'},
+      {id:'t29',t:'Get to Brussels Airport 3–4 hours early for international flight'},
+      {id:'t30',t:'Take final photo in Liège — next photo: Seoul 🎉'},
+    ]},
+  ];
+  const total = sections.reduce((a,s)=>a+s.tasks.length,0);
+  const done = Object.values(checked).filter(Boolean).length;
+  return (
+    <div className="space-y-6 fade-up">
+      <div className="bg-slate-900/60 border border-rose-500/30 rounded-xl p-4 flex items-center justify-between">
+        <span className="text-slate-300">{done} / {total} tasks completed</span>
+        <div className="w-40 h-2 bg-slate-700 rounded-full overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-rose-500 to-orange-400 prog-bar rounded-full" style={{width:`${(done/total)*100}%`}}/>
+        </div>
+      </div>
+      {sections.map((s,si)=>(
+        <div key={si} className={`fade-up d${si+1} bg-slate-900/60 border border-slate-700/40 rounded-2xl overflow-hidden`} style={{borderColor:`${s.color}30`}}>
+          <div className="p-4 border-b border-slate-700/40" style={{background:`${s.color}10`}}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-white font-bold">{s.when}</h3>
+              <span className="text-xs text-slate-400 bg-slate-800 px-2 py-1 rounded-full">{s.desc}</span>
+            </div>
+          </div>
+          <div className="p-4 space-y-2">
+            {s.tasks.map(task=>(
+              <div key={task.id} onClick={()=>toggle(task.id)}
+                className="check-item flex items-start gap-3 p-2.5 rounded-lg hover:bg-slate-700/20">
+                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center mt-0.5 transition-all flex-shrink-0`}
+                  style={{background:checked[task.id]?s.color:'transparent',borderColor:checked[task.id]?s.color:'#475569'}}>
+                  {checked[task.id] && <span className="text-white text-xs font-bold">✓</span>}
+                </div>
+                <span className={`text-sm transition-all ${checked[task.id]?'line-through text-slate-500':'text-slate-200'}`}>{task.t}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ItaewonContent() {
+  const [cityPhotos, setCityPhotos] = useState({});
+
+  const cities = [
+    { name:'Seoul', kr:'서울', emoji:'🏙️', days:50, when:'Weeks 1–4 & 8–9', desc:'Your base. Home for 50 days. Hongdae, Gangnam, Itaewon, Myeongdong.', color:'#06b6d4', photoQ:'Seoul Korea city skyline night' },
+    { name:'Busan', kr:'부산', emoji:'🏖️', days:4, when:'Week 5', desc:'Korea\'s second city. Beaches, seafood, temples. 2.5h on KTX.', color:'#0ea5e9', photoQ:'Busan South Korea Gwangalli beach night' },
+    { name:'Seoraksan NP', kr:'설악산', emoji:'⛰️', days:2, when:'Week 6', desc:'Dramatic mountain scenery. Free hiking. Waterfalls.', color:'#84cc16', photoQ:'Seoraksan mountain national park Korea autumn' },
+    { name:'Sokcho', kr:'속초', emoji:'🌊', days:2, when:'Week 6', desc:'Coastal town near Seoraksan. Fresh abalone porridge.', color:'#10b981', photoQ:'Korea east coast fishing harbor sea mountains' },
+    { name:'Gyeongju', kr:'경주', emoji:'🏯', days:2, when:'Weekend Wk 3', desc:'Ancient Silla capital. UNESCO temples, burial mounds.', color:'#f97316', photoQ:'Gyeongju Bulguksa temple Korea historic' },
+    { name:'Jeju Island', kr:'제주도', emoji:'🌋', days:5, when:'Week 7', desc:'Volcanic paradise. Beaches + Hallasan hiking + black pork BBQ.', color:'#ec4899', photoQ:'Jeju Island Korea beach volcanic landscape' },
+  ];
+
+  const routes = [
+    { from:'Seoul', to:'Busan', mode:'🚄 KTX Train', time:'2h 30min', cost:'€30–40', tip:'Book at letskorail.com — sells out weekends' },
+    { from:'Seoul', to:'Sokcho/Seoraksan', mode:'🚌 Express Bus', time:'2h 30min', cost:'€10–15', tip:'From Dongseoul Bus Terminal' },
+    { from:'Seoul', to:'Gyeongju', mode:'🚌 Express Bus', time:'3h', cost:'€12–15', tip:'Cheaper than train; same comfort' },
+    { from:'Seoul', to:'Jeju', mode:'✈️ Domestic Flight', time:'1h 30min', cost:'€40–70', tip:'Jeju Air from Gimpo Airport — book 2 months early' },
+    { from:'Any', to:'Seoul Subway', mode:'🚇 T-money Card', time:'Varies', cost:'€0.90/trip', tip:'Buy at Incheon Airport — works on buses too' },
+  ];
+
+  useEffect(() => {
+    async function loadCityPhotos() {
+      const entries = await Promise.all(
+        cities.map(async c => {
+          const p = await fetchPhoto(c.photoQ);
+          return [c.name, p];
+        })
+      );
+      setCityPhotos(Object.fromEntries(entries));
+    }
+    loadCityPhotos();
+  }, []);
+
+  return (
+    <div className="space-y-8 fade-up">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {cities.map((c,i) => {
+          const photo = cityPhotos[c.name];
+          return (
+            <div key={i} className={`fade-up d${i+1} border rounded-xl overflow-hidden card`}
+              style={{borderColor:`${c.color}35`, background:'rgba(15,23,42,0.8)'}}>
+
+              {/* Photo header */}
+              <div className="relative h-32 overflow-hidden">
+                {photo ? (
+                  <>
+                    <img src={photo.url} alt={c.name}
+                      className="w-full h-full object-cover fade-in"
+                      style={{opacity:.75}}/>
+                    <div className="absolute inset-0" style={{background:`linear-gradient(to bottom,transparent 20%,rgba(15,23,42,.95) 100%)`}}/>
+                  </>
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center"
+                    style={{background:`linear-gradient(135deg,${c.color}20,${c.color}08)`}}>
+                    <span className="text-5xl opacity-40">{c.emoji}</span>
+                  </div>
+                )}
+                {/* City name overlay on photo */}
+                <div className="absolute bottom-0 left-0 right-0 p-3 flex items-end justify-between">
+                  <div>
+                    <p className="text-white font-black text-lg leading-tight drop-shadow">{c.name}</p>
+                    <p className="text-slate-300 text-xs drop-shadow">{c.kr}</p>
+                  </div>
+                  <span className="text-xs font-bold px-2 py-1 rounded-full flex-shrink-0"
+                    style={{background:`${c.color}30`,color:c.color,border:`1px solid ${c.color}50`}}>
+                    {c.days}d
+                  </span>
+                </div>
+                {photo && (
+                  <p className="absolute top-2 right-2 text-xs text-white/30">{c.emoji}</p>
+                )}
+              </div>
+
+              {/* Card body */}
+              <div className="p-4">
+                <p className="text-xs mb-1" style={{color:c.color}}>{c.when}</p>
+                <p className="text-slate-300 text-sm leading-relaxed">{c.desc}</p>
+                {photo && (
+                  <p className="text-slate-600 text-xs mt-2">📸 {photo.credit}</p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="bg-slate-900/60 border border-cyan-500/20 rounded-2xl p-6">
+        <h3 className="text-white font-bold text-lg mb-5">Transport Between Cities</h3>
+        <div className="space-y-4">
+          {routes.map((r,i)=>(
+            <div key={i} className={`fade-up d${i+1} flex flex-wrap items-start justify-between gap-3 p-4 bg-slate-800/40 rounded-xl hover:bg-slate-800/60 transition`}>
+              <div>
+                <p className="text-white font-semibold text-sm">{r.from} → {r.to}</p>
+                <p className="text-slate-400 text-xs mt-0.5">{r.mode} · {r.time}</p>
+                <p className="text-slate-500 text-xs mt-1 italic">{r.tip}</p>
+              </div>
+              <span className="text-emerald-400 font-bold text-sm">{r.cost}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CheonggyecheonContent() {
+  const dep = '2027-07-07';
+  const mkDeadline = (moBefore) => {
+    const d = new Date(dep); d.setMonth(d.getMonth()-moBefore);
+    return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+  };
+  const items = [
+    { emoji:'✈️', title:'Book Flights', urgency:'CRITICAL', urgencyColor:'#f43f5e', deadline:mkDeadline(4),
+      tip:'Brussels → Incheon. Brussels Airlines, Air France, Finnair, Korean Air. Book Tue/Wed for cheapest fares. Set alerts on Google Flights now.',
+      cost:'€500–700 return', link:'Google Flights' },
+    { emoji:'🛡️', title:'Travel Insurance', urgency:'CRITICAL', urgencyColor:'#f43f5e', deadline:mkDeadline(4),
+      tip:'Buy within 24–48hrs of booking flights. Must cover: medical (€1M+), cancellation, baggage, emergency repatriation.',
+      cost:'€80–150 for 70 days', link:'AXA or Allianz Travel' },
+    { emoji:'📋', title:'K-ETA Application', urgency:'HIGH', urgencyColor:'#f97316', deadline:mkDeadline(3),
+      tip:'Korean Electronic Travel Authorization for EU citizens. Apply at k-eta.go.kr. €10 fee, valid 2 years. Takes up to 72hrs to approve.',
+      cost:'€10', link:'k-eta.go.kr' },
+    { emoji:'🏨', title:'Seoul Hotel — First 2 Weeks', urgency:'HIGH', urgencyColor:'#f97316', deadline:mkDeadline(2),
+      tip:'Book in Hongdae (artsy, great nightlife) or Itaewon (international food). Budget: €25–35/night. Use Booking.com. Choose free cancellation.',
+      cost:'€25–35/night', link:'Booking.com' },
+    { emoji:'✈️', title:'Jeju Domestic Flight', urgency:'HIGH', urgencyColor:'#f97316', deadline:mkDeadline(2),
+      tip:'Summer is Jeju high season — flights sell out FAST. Gimpo (GMP) → Jeju (CJU) with Jeju Air or Air Seoul. Morning flights cheapest.',
+      cost:'€40–70 one-way', link:'Jeju Air website' },
+    { emoji:'🚄', title:'KTX Seoul → Busan', urgency:'MEDIUM', urgencyColor:'#06b6d4', deadline:mkDeadline(1),
+      tip:'Korea Train Express — comfortable, scenic, 2.5hrs. Book on Korail. Standard class fine. Weekday much cheaper than weekend.',
+      cost:'€30–40', link:'letskorail.com' },
+    { emoji:'🏨', title:'Remaining Hotels', urgency:'LOW', urgencyColor:'#84cc16', deadline:'3 weeks before',
+      tip:'Busan, Jeju, final Seoul weeks. Korea has abundant budget hotels — no need to book far ahead. Use Agoda for deals.',
+      cost:'€20–35/night', link:'Agoda or Booking.com' },
+    { emoji:'📱', title:'Korean SIM Card', urgency:'LOW', urgencyColor:'#84cc16', deadline:'2 weeks before',
+      tip:'Order on Klook or pick up at Incheon Airport. KT or SK Telecom unlimited data. €15–25/month — much cheaper than roaming.',
+      cost:'€15–25/month', link:'Klook.com' },
+  ];
+  const uc = {'CRITICAL':'#f43f5e','HIGH':'#f97316','MEDIUM':'#06b6d4','LOW':'#84cc16'};
+  return (
+    <div className="space-y-4 fade-up">
+      {items.map((item,i)=>(
+        <div key={i} className={`fade-up d${Math.min(i+1,6)} bg-slate-900/60 border border-slate-700/40 rounded-2xl p-5 card`}
+          style={{borderColor:`${item.urgencyColor}25`}}>
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">{item.emoji}</span>
+              <div>
+                <p className="text-white font-bold">{item.title}</p>
+                <p className="text-slate-400 text-xs">Deadline: {item.deadline}</p>
+              </div>
+            </div>
+            <span className="text-xs font-black px-3 py-1 rounded-full" style={{background:`${item.urgencyColor}20`,color:item.urgencyColor}}>
+              {item.urgency}
+            </span>
+          </div>
+          <p className="text-slate-300 text-sm mb-3 leading-relaxed">{item.tip}</p>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-emerald-400 font-semibold">{item.cost}</span>
+            <span className="text-slate-500 italic">{item.link}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function HanRiverContent({ departureDate, setDepartureDate }) {
+  const [cd, setCd] = useState({ days:0, hours:0, minutes:0, seconds:0 });
+  useEffect(()=>{
+    const tick=()=>{
+      const now=new Date(), target=new Date(departureDate+'T06:00:00'), diff=target-now;
+      if(diff<=0){setCd({days:0,hours:0,minutes:0,seconds:0});return;}
+      setCd({days:Math.floor(diff/86400000),hours:Math.floor(diff%86400000/3600000),
+        minutes:Math.floor(diff%3600000/60000),seconds:Math.floor(diff%60000/1000)});
+    };
+    tick(); const iv=setInterval(tick,1000); return()=>clearInterval(iv);
+  },[departureDate]);
+  const dep=new Date(departureDate);
+  const depFmt=dep.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const ret=new Date(dep); ret.setDate(ret.getDate()+70);
+  const retFmt=ret.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  return (
+    <div className="space-y-8 fade-up">
+      <div className="bg-slate-900/60 border border-emerald-500/30 rounded-3xl p-8 text-center" style={{boxShadow:'0 0 40px #10b98115'}}>
+        <p className="text-slate-400 text-lg mb-8 animate-pulse">서울까지의 시간 — Time until Seoul</p>
+        <div className="grid grid-cols-4 gap-4 mb-8">
+          {[['Days',cd.days],['Hours',cd.hours],['Minutes',cd.minutes],['Seconds',cd.seconds]].map(([l,v],i)=>(
+            <div key={l} className="bg-slate-950/80 border border-emerald-500/30 rounded-2xl p-4" style={{boxShadow:'0 0 20px #10b98115'}}>
+              <p className="text-5xl font-black text-emerald-400 mono">{String(v).padStart(2,'0')}</p>
+              <p className="text-slate-500 text-xs uppercase tracking-widest mt-2">{l}</p>
+            </div>
+          ))}
+        </div>
+        <div className="bg-slate-800/40 rounded-2xl p-5 inline-block">
+          <p className="text-slate-400 text-sm mb-3">Set your departure date</p>
+          <input type="date" value={departureDate} min="2027-07-01" max="2027-07-15"
+            onChange={e=>setDepartureDate(e.target.value)}
+            className="bg-slate-900 border-2 border-emerald-500/40 text-white rounded-xl px-4 py-2 text-lg focus:border-emerald-400 focus:outline-none transition" />
+          <p className="text-slate-600 text-xs mt-2">July 1–15, 2027</p>
+        </div>
+      </div>
+      <div className="grid sm:grid-cols-2 gap-4">
+        <div className="bg-slate-900/60 border border-emerald-500/20 rounded-2xl p-6">
+          <p className="text-3xl mb-3">✈️</p>
+          <p className="text-white font-bold text-lg mb-1">Departure</p>
+          <p className="text-emerald-300">{depFmt}</p>
+          <p className="text-slate-500 text-sm mt-1">Brussels → Incheon (11hrs)</p>
+        </div>
+        <div className="bg-slate-900/60 border border-emerald-500/20 rounded-2xl p-6">
+          <p className="text-3xl mb-3">🏠</p>
+          <p className="text-white font-bold text-lg mb-1">Return</p>
+          <p className="text-emerald-300">{retFmt}</p>
+          <p className="text-slate-500 text-sm mt-1">Incheon → Brussels</p>
+        </div>
+      </div>
+      <div className="bg-slate-900/60 border border-emerald-500/20 rounded-2xl p-6">
+        <h3 className="text-white font-bold mb-4">Quick Navigation — All Districts</h3>
+        <p className="text-slate-400 text-sm">Han River is your central hub. From here you can reach every district of your trip.</p>
+        <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm text-slate-300">
+          {['강남 Budget','홍대 Itinerary','명동 Packing','동대문 Checklist','이태원 Cities','청계천 Booking','북촌 Secrets'].map((d,i)=>(
+            <div key={i} className="bg-slate-800/40 px-3 py-2 rounded-lg text-center">{d}</div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BukchonContent({ discovered, setDiscovered }) {
+  const secrets = [
+    { id:'s1', emoji:'🍜', title:'Street Food Codes', hint:'The $2 meal that changed everything',
+      content:'Tteokbokki (€1.5) near Hongik Univ. Gimbap rolls for €1. Convenience store dosirak (lunch box) €2.5. A full stomach in Seoul costs €5 if you know where to look.' },
+    { id:'s2', emoji:'🏯', title:'Free Entry Secrets', hint:'Why pay when you can get in free?',
+      content:'Most public parks, beaches and hiking trails = FREE. Gwanghwamun Plaza = FREE. Night views from Naksan Park = FREE. Many temple grounds = FREE. Bukhansan National Park = FREE.' },
+    { id:'s3', emoji:'🚇', title:'Subway Life Hack', hint:'How locals move for less',
+      content:'Base transfer discount: take metro + bus within 30 min = no extra charge. Buy IPHONE CASE at Sinchon market, not Myeongdong (30% cheaper). Night bus is FREE after midnight for metro card holders on last Friday of month.' },
+    { id:'s4', emoji:'☕', title:'Café District Loop', hint:'The route locals don\'t post online',
+      content:'Start: Yeonnam-dong → Mangwon → Seongsu-dong "Seoul\'s Brooklyn" → Ikseondong Hanok Cafés → end at Ikseon Bar Street. Best afternoon 3hrs you can spend in Seoul.' },
+    { id:'s5', emoji:'🌙', title:'Midnight Seoul', hint:'The city that literally never sleeps',
+      content:'Dongdaemun Design Plaza open until 3AM. Street pojangmacha bars open until dawn. Gangnam clubs charge €15 entry but drinks are free inside. Noryangjin Fish Market best visited at 3-4AM for cheapest prices.' },
+    { id:'s6', emoji:'🗣️', title:'Language Exchange', hint:'Meet Seoul before you even leave',
+      content:'Language Exchange Seoul (Facebook group) has free weekly meetups. HelloTalk app connects you with Korean speakers NOW. Say "도와주세요" (doh-wah-jew-seh-yo) = "Please help me" — Koreans will go out of their way to assist.' },
+  ];
+  return (
+    <div className="space-y-4 fade-up">
+      <p className="text-slate-400 text-sm fade-up">🔍 You found Bukchon. Most tourists don't come this far. Click each alley to reveal what's inside.</p>
+      {secrets.map((s,i)=>(
+        <div key={s.id} className={`fade-up d${i+1} border rounded-xl overflow-hidden transition-all cursor-pointer card`}
+          style={{borderColor:discovered[s.id]?'#84cc1660':'#33415540',background:discovered[s.id]?'rgba(132,204,22,0.05)':'rgba(15,23,42,0.6)'}}
+          onClick={()=>setDiscovered(d=>({...d,[s.id]:!d[s.id]}))}>
+          <div className="flex items-center justify-between p-4">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">{s.emoji}</span>
+              <div>
+                <p className="text-white font-bold">{s.title}</p>
+                <p className="text-slate-400 text-sm italic">{s.hint}</p>
+              </div>
+            </div>
+            <span className={`text-sm px-3 py-1 rounded-full font-semibold transition-all ${discovered[s.id]?'bg-lime-500/20 text-lime-400':'bg-slate-700/50 text-slate-400'}`}>
+              {discovered[s.id] ? '✓ Revealed' : '→ Enter'}
+            </span>
+          </div>
+          {discovered[s.id] && (
+            <div className="px-4 pb-4 border-t border-lime-500/20">
+              <p className="text-slate-200 text-sm leading-relaxed pt-3">{s.content}</p>
+            </div>
+          )}
+        </div>
+      ))}
+      {Object.values(discovered).filter(Boolean).length === secrets.length && (
+        <div className="scale-in bg-gradient-to-br from-lime-950 to-slate-950 border-2 border-lime-500 rounded-2xl p-8 text-center">
+          <p className="text-4xl mb-3">🏮</p>
+          <p className="text-lime-400 font-black text-2xl neon-lime mb-2">진짜 서울 여행자</p>
+          <p className="text-lime-300 text-sm">Real Seoul Traveler. You uncovered all of Bukchon. You're ready for Korea.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────
+   CITY MAP (Main View)
+──────────────────────────────────────────────── */
+function CityMap({ onEnter, photos, photosLoading }) {
+  const [hovered, setHovered] = useState(null);
+  const dists = Object.values(DISTRICTS);
+  return (
+    <div className="min-h-screen grid-lines scanlines" style={{background:'linear-gradient(135deg,#010409 0%,#030712 50%,#010409 100%)'}}>
+      {/* Ambient orbs */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        {dists.slice(0,4).map((d,i)=>(
+          <div key={d.id} className="absolute w-96 h-96 rounded-full blur-3xl opacity-5"
+            style={{background:d.color,left:`${d.x}%`,top:`${d.y}%`,transform:'translate(-50%,-50%)',
+              animation:`orb ${8+i}s ease-in-out infinite`,animationDelay:`${i*2}s`}}/>
+        ))}
+      </div>
+
+      {/* Header */}
+      <header className="relative z-20 border-b border-slate-800/80 backdrop-blur-sm px-8 py-6 fade-down">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-5xl font-black bg-gradient-to-r from-pink-400 via-cyan-400 to-amber-400 bg-clip-text text-transparent kr-title">
+              🇰🇷 Korea 2027
+            </h1>
+            <p className="text-slate-500 text-sm mt-1">Navigate like Seoul • Each district holds a different part of your journey</p>
+          </div>
+          <div className="text-right">
+            <p className="text-slate-400 text-xs mono">LIÈGE → SEOUL</p>
+            <p className="text-slate-400 text-xs mono">JULY 2027</p>
+            {photosLoading && <p className="text-slate-600 text-xs mt-1 animate-pulse">Loading city photos…</p>}
+          </div>
+        </div>
+      </header>
+
+      {/* Map + Districts */}
+      <div className="relative z-10 flex-1 px-6 py-8">
+        <div className="max-w-7xl mx-auto">
+          {/* SVG Subway Lines */}
+          <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{zIndex:5}} viewBox="0 0 100 100" preserveAspectRatio="none">
+            {METRO_LINES.map((line,i)=>{
+              const f=DISTRICTS[line.from], t=DISTRICTS[line.to];
+              return <line key={i} x1={`${f.x}%`} y1={`${f.y}%`} x2={`${t.x}%`} y2={`${t.y}%`}
+                stroke={line.color} strokeWidth=".3" opacity=".5"
+                className={`metro-line metro-${i+1}`}/>;
+            })}
+          </svg>
+
+          {/* District Nodes */}
+          <div className="relative" style={{height:'75vh',minHeight:480}}>
+            {dists.map(d=>{
+              const photo = photos[d.id];
+              return (
+                <button key={d.id}
+                  className="absolute transform -translate-x-1/2 -translate-y-1/2 dist-node group"
+                  style={{left:`${d.x}%`,top:`${d.y}%`,zIndex:10}}
+                  onMouseEnter={()=>setHovered(d.id)}
+                  onMouseLeave={()=>setHovered(null)}
+                  onClick={()=>onEnter(d.id)}>
+
+                  {/* Pulse ring */}
+                  <div className="absolute inset-0 rounded-2xl opacity-30"
+                    style={{background:d.color,animation:`pulseRing 2s ease-out infinite`,animationDelay:`${Math.random()*1.5}s`}} />
+
+                  {/* Main node — photo background if available */}
+                  <div className="relative rounded-2xl border-2 overflow-hidden transition-all"
+                    style={{
+                      borderColor:`${d.color}80`,
+                      boxShadow:`0 0 24px ${d.color}40`,
+                      width: d.id==='hanriver' ? 110 : 90,
+                    }}>
+                    {/* Photo layer */}
+                    {photo ? (
+                      <div className="absolute inset-0 z-0">
+                        <img src={photo.thumb} alt={d.name} className="w-full h-full object-cover opacity-60"
+                          style={{transition:'opacity .5s'}}/>
+                        <div className="absolute inset-0" style={{background:`linear-gradient(135deg,${d.color}70,${d.color}30)`}}/>
+                      </div>
+                    ) : (
+                      <div className="absolute inset-0 z-0" style={{background:`linear-gradient(135deg,${d.color}30,${d.color}10)`}}/>
+                    )}
+                    {/* Content on top */}
+                    <div className="relative z-10 p-4">
+                      <div className="text-2xl text-center mb-1">{d.emoji}</div>
+                      <p className="text-white text-xs font-bold text-center leading-tight drop-shadow">{d.name.split(' ')[0]}</p>
+                    </div>
+                  </div>
+
+                  {/* Hover tooltip */}
+                  {hovered===d.id && (
+                    <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 bg-slate-900/95 border border-slate-700 rounded-xl overflow-hidden text-left w-56 pointer-events-none scale-in"
+                      style={{zIndex:99,borderColor:`${d.color}50`,boxShadow:`0 0 30px ${d.color}25`}}>
+                      {/* Tooltip photo strip */}
+                      {photo && (
+                        <div className="relative h-24 overflow-hidden">
+                          <img src={photo.thumb} alt={d.name} className="w-full h-full object-cover"/>
+                          <div className="absolute inset-0" style={{background:`linear-gradient(to bottom,transparent,rgba(2,6,23,.9))`}}/>
+                          <p className="absolute bottom-2 right-2 text-slate-400 text-xs">{photo.credit}</p>
+                        </div>
+                      )}
+                      <div className="p-3">
+                        <p className="font-bold text-sm mb-0.5" style={{color:d.color}}>{d.name}</p>
+                        <p className="text-slate-400 text-xs mb-1">{d.title}</p>
+                        <p className="text-slate-500 text-xs">{d.sub}</p>
+                      </div>
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Legend */}
+          <div className="mt-4 flex flex-wrap gap-3 justify-center fade-up">
+            {dists.map(d=>(
+              <button key={d.id} onClick={()=>onEnter(d.id)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all hover:scale-105"
+                style={{background:`${d.color}15`,border:`1px solid ${d.color}40`,color:d.color}}>
+                <span>{d.emoji}</span>{d.name.split(' ')[0]}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────
+   DISTRICT VIEW
+──────────────────────────────────────────────── */
+function DistrictView({ districtId, onBack, onEnterOther, savingsData, setSavingsData, departureDate, setDepartureDate, discovered, setDiscovered, photos }) {
+  const d = DISTRICTS[districtId];
+  const photo = photos[districtId];
+
+  const renderContent = () => {
+    switch(districtId) {
+      case 'gangnam': return <GangnamContent savingsData={savingsData} setSavingsData={setSavingsData}/>;
+      case 'hongdae': return <HongdaeContent/>;
+      case 'myeongdong': return <MyeongdongContent/>;
+      case 'dongdaemun': return <DongdaemunContent/>;
+      case 'itaewon': return <ItaewonContent/>;
+      case 'cheonggyecheon': return <CheonggyecheonContent/>;
+      case 'hanriver': return <HanRiverContent departureDate={departureDate} setDepartureDate={setDepartureDate}/>;
+      case 'bukchon': return <BukchonContent discovered={discovered} setDiscovered={setDiscovered}/>;
+      default: return null;
+    }
+  };
+
+  const others = Object.values(DISTRICTS).filter(x=>x.id!==districtId);
+
+  return (
+    <div className="min-h-screen grid-lines" style={{background:'linear-gradient(135deg,#010409,#030712)'}}>
+      <div className="fixed inset-0 pointer-events-none overflow-hidden opacity-10">
+        <div className="absolute w-[600px] h-[600px] rounded-full blur-3xl -top-40 -left-40"
+          style={{background:d.color,animation:'orb 10s ease-in-out infinite'}}/>
+      </div>
+
+      <header className="sticky top-0 z-30 border-b border-slate-800/80 backdrop-blur-sm px-6 py-4 fade-down">
+        <div className="max-w-5xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button onClick={onBack} className="back-btn text-slate-400 text-sm flex items-center gap-1">← 지도 (Map)</button>
+            <span className="text-slate-700">›</span>
+            <span className="font-bold text-sm" style={{color:d.color}}>{d.name}</span>
+          </div>
+          <div className="hidden sm:flex gap-1.5 overflow-x-auto">
+            {others.slice(0,5).map(o=>(
+              <button key={o.id} onClick={()=>onEnterOther(o.id)}
+                className="text-xs px-2 py-1 rounded-lg transition-all hover:scale-105"
+                style={{background:`${o.color}15`,color:`${o.color}cc`,border:`1px solid ${o.color}25`}}>
+                {o.emoji}
+              </button>
+            ))}
+          </div>
+        </div>
+      </header>
+
+      {/* Full-bleed photo hero */}
+      <div className="relative overflow-hidden" style={{minHeight:300}}>
+        {photo ? (
+          <div className="absolute inset-0 z-0">
+            <img src={photo.url} alt={d.name} className="w-full h-full object-cover fade-in"
+              style={{opacity:.5,objectPosition:'center 40%'}}/>
+            <div className="absolute inset-0" style={{
+              background:`linear-gradient(to bottom,${d.color}25 0%,rgba(2,6,23,.75) 55%,#030712 100%)`
+            }}/>
+          </div>
+        ) : (
+          <div className="absolute inset-0 z-0" style={{background:`linear-gradient(135deg,${d.color}12,transparent)`}}/>
+        )}
+        <div className="relative z-10 max-w-5xl mx-auto px-6 py-12 scale-in">
+          <div className="text-6xl mb-3 drop-shadow-lg">{d.emoji}</div>
+          <h1 className={`text-5xl font-black text-white mb-2 kr-title drop-shadow-lg ${d.neon}`}>{d.name}</h1>
+          <p className="text-slate-300 text-lg mb-2 drop-shadow">{d.title} · {d.sub}</p>
+          <p className="text-slate-400 text-sm max-w-lg leading-relaxed">{d.desc}</p>
+          {photo && (
+            <p className="mt-3 text-slate-600 text-xs">Photo by <a href={photo.creditLink} target="_blank" rel="noopener noreferrer" className="hover:text-slate-400 underline">{photo.credit}</a> on Unsplash</p>
+          )}
+        </div>
+      </div>
+
+      <div className="relative z-10 max-w-5xl mx-auto px-6 pb-12">
+        {renderContent()}
+        <div className="mt-12 border-t border-slate-800 pt-8">
+          <p className="text-slate-500 text-xs uppercase tracking-widest mb-4 flex items-center gap-2">
+            <span>🚇</span> Connected districts — take the next line
+          </p>
+          <div className="flex flex-wrap gap-3">
+            {others.map(o=>{
+              const op = photos[o.id];
+              return (
+                <button key={o.id} onClick={()=>onEnterOther(o.id)}
+                  className="card flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm transition-all overflow-hidden relative"
+                  style={{background:`${o.color}12`,border:`1px solid ${o.color}35`,color:`${o.color}dd`}}>
+                  {op && <div className="absolute inset-0 z-0 overflow-hidden rounded-xl"><img src={op.thumb} alt="" className="w-full h-full object-cover opacity-10"/></div>}
+                  <span className="relative z-10">{o.emoji}</span>
+                  <span className="relative z-10 font-semibold">{o.name.split(' ')[0]}</span>
+                  <span className="relative z-10 text-xs opacity-60 hidden sm:inline">{o.title}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────
+   ROOT APP
+──────────────────────────────────────────────── */
+function App() {
+  const [current, setCurrent] = useState(null);
+  const [savings, setSavings] = useState({s2026:0,sy:0,x2026:0,e2027:0,j2027:0});
+  const [departure, setDeparture] = useState('2027-07-07');
+  const [discovered, setDiscovered] = useState({});
+  const [photos, setPhotos] = useState({});
+  const [photosLoading, setPhotosLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadAll() {
+      const entries = await Promise.all(
+        Object.values(DISTRICTS).map(async d => {
+          const photo = await fetchPhoto(d.photoQuery);
+          return [d.id, photo];
+        })
+      );
+      setPhotos(Object.fromEntries(entries));
+      setPhotosLoading(false);
+    }
+    loadAll();
+  }, []);
+
+  if (!current) return <CityMap onEnter={setCurrent} photos={photos} photosLoading={photosLoading}/>;
+
+  return <DistrictView
+    districtId={current}
+    onBack={()=>setCurrent(null)}
+    onEnterOther={id=>{setCurrent(null);setTimeout(()=>setCurrent(id),50);}}
+    savingsData={savings} setSavingsData={setSavings}
+    departureDate={departure} setDepartureDate={setDeparture}
+    discovered={discovered} setDiscovered={setDiscovered}
+    photos={photos}
+  />;
+}
+
+ReactDOM.render(<App/>, document.getElementById('root'));
+    </script>
+</body>
+</html>
